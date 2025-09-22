@@ -38,8 +38,8 @@ This setup integrates multiple open-source projects. You are encouraged to revie
 
 ### Clone the Repository
 ```bash
-git clone <your-github-repository-url>
-cd ./<repository-folder>
+git clone https://github.com/thomas-leanfa/docker-yocto-qt-builder.git
+cd ./docker-yocto-qt-builder
 ```
 
 ### Add the Yocto SDK Toolchain
