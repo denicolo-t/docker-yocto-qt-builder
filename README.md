@@ -40,7 +40,7 @@ This setup integrates multiple open-source projects. You are encouraged to revie
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/thomas-leanfa/docker-yocto-qt-builder.git
+git clone https://github.com/denicolo-t/docker-yocto-qt-builder.git
 cd ./docker-yocto-qt-builder
 ```
 
