@@ -1,3 +1,5 @@
+
+
 # Docker Environment for Qt Build and Deployment with Yocto Toolchain
 
 ## Overview
@@ -46,7 +48,8 @@ cd ./docker-yocto-qt-builder
 Copy your Yocto-generated SDK toolchain `.sh` file into the project root:
 
 ```
-.\<repository-folder>├── Dockerfile
+./docker-yocto-qt-builder
+├── Dockerfile
 ├── build-and-deploy.sh
 ├── deploy-config.sh
 ├── Readme.md
@@ -55,17 +58,24 @@ Copy your Yocto-generated SDK toolchain `.sh` file into the project root:
 
 ### Build the Docker Image
 ```bash
-docker build --build-arg TOOLCHAIN_FILE=<toolchain-installer.sh> -t <name>-qtbuilder .
+docker build \
+  --build-arg TOOLCHAIN_FILE=<toolchain-installer.sh> \
+  -t <name>-qtbuilder .
 ```
 
 **Example (i.MX6):**
 ```bash
-docker build --build-arg TOOLCHAIN_FILE=fslc-framebuffer-glibc-x86_64-qt-image-armv7at2hf-neon-toolchain-2.3.sh -t yocto-qtbuilder .
+docker build \
+  --build-arg TOOLCHAIN_FILE=fslc-framebuffer-glibc-x86_64-qt-image-armv7at2hf-neon-toolchain-2.3.sh \
+  -t imx6-qtbuilder .
 ```
 
 To disable caching:
 ```bash
-docker build --no-cache --build-arg TOOLCHAIN_FILE=<toolchain-installer.sh> -t <name>-qtbuilder .
+docker build \
+  --no-cache \
+  --build-arg TOOLCHAIN_FILE=<toolchain-installer.sh> \
+  -t <name>-qtbuilder .
 ```
 
 ---
@@ -76,7 +86,7 @@ docker build --no-cache --build-arg TOOLCHAIN_FILE=<toolchain-installer.sh> -t <
 Assume the following structure:
 
 ```
-C:\<repositories>\<workspace>\
+C:\<repositories-path>\<project-workspace>\
 ├── <ProjectName>\
 │   ├── main.cpp
 │   ├── *.pro
@@ -86,26 +96,71 @@ C:\<repositories>\<workspace>\
 ### 1. Build Only
 ```bash
 # Debug build
-docker run --rm -v "C:\<workspace>:/workspace" yocto-qtbuilder build debug
+docker run \
+  --rm \
+  -v "C:\<repositories-path>\<project-workspace>:/workspace" \
+  <name>-qtbuilder \
+  build debug
 
 # Release build
-docker run --rm -v "C:\<workspace>:/workspace" yocto-qtbuilder build release
+docker run \
+  --rm \
+  -v "C:\<repositories-path>\<project-workspace>:/workspace" \
+  <name>-qtbuilder \
+  build release
+```
+
+**Output:** The compiled files will be created in the following directories:
+
+```
+C:\<path-repositories>\Repositories\<workspace-project>\
+├── <ProjectName>\                           ← Source files
+├── <ProjectName>-build-<kit>-debug\        ← DEBUG build
+│   ├── Makefile
+│   ├── *.o
+│   └── <executable_debug>
+└── <ProjectName>-build-<kit>-release\      ← RELEASE build
+    ├── Makefile
+    ├── *.o
+    └── <executable_release>
 ```
 
 ### 2. Build + Deploy + Run
 With SSH keys (recommended):
 ```bash
-docker run --rm -v "C:\<workspace>:/workspace" -v ~/.ssh:/root/.ssh yocto-qtbuilder     build-deploy release     --ip 192.168.1.100     --user pi     --run-args "--platform eglfs"
+docker run \
+  --rm \
+  -v "C:\<repositories-path>\<project-workspace>:/workspace" \
+  -v ~/.ssh:/root/.ssh \
+  <name>-qtbuilder \
+  build-deploy release \
+  --ip 192.168.1.100 \
+  --user pi \
+  --run-args "--platform eglfs"
 ```
 
 With password:
 ```bash
-docker run --rm -v "C:\<workspace>:/workspace" yocto-qtbuilder     build-deploy debug     --ip 192.168.1.100     --user root     --password mypassword     --run-args "--platform eglfs -fullscreen"
+docker run \
+  --rm \
+  -v "C:\<repositories-path>\<project-workspace>:/workspace" \
+  <name>-qtbuilder \
+  build-deploy debug \
+  --ip 192.168.1.100 \
+  --user root \
+  --password mypassword \
+  --run-args "--platform eglfs -fullscreen"
 ```
 
 ### 3. Deploy Only
 ```bash
-docker run --rm -v "C:\<workspace>:/workspace" yocto-qtbuilder     deploy /workspace/<ProjectName>-build-<kit>-release/<executable>     --ip 192.168.1.100     --run-args "--platform eglfs"
+docker run \
+  --rm \
+  -v "C:\<repositories-path>\<project-workspace>:/workspace" \
+  <name>-qtbuilder \
+  deploy /workspace/<ProjectName>-build-<kit>-release/<executable> \
+  --ip 192.168.1.100 \
+  --run-args "--platform eglfs"
 ```
 
 ---
