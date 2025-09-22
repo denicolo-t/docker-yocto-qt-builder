@@ -44,6 +44,19 @@ git clone https://github.com/thomas-leanfa/docker-yocto-qt-builder.git
 cd ./docker-yocto-qt-builder
 ```
 
+###  Yocto SDK Toolchain
+
+To obtain the Yocto-generated SDK toolchain (`.sh` file), build your Yocto project for the desired target. After the build completes, the SDK installer will be available in the `tmp/deploy/sdk/` directory of your Yocto build.
+
+Copy the `.sh` file into the project root and execute it to set up the cross-compilation environment:
+
+```bash
+chmod +x <toolchain-name>.sh
+./<toolchain-name>.sh
+```
+
+For detailed instructions on building and using the SDK, refer to the [Yocto Project Application Development and Extensible SDK Manual](https://docs.yoctoproject.org/sdk-manual/index.html).
+
 ### Add the Yocto SDK Toolchain
 Copy your Yocto-generated SDK toolchain `.sh` file into the project root:
 
