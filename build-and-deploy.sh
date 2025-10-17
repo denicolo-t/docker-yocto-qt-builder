@@ -9,9 +9,13 @@ show_help() {
     echo "Cross-Compiler and Deploy Tool"
     echo ""
     echo "Usage:"
-    echo "  build <debug|release>                    - Build only"
+    echo "  build <debug|release> [--clean]         - Build only"
     echo "  deploy <executable_path> [options]      - Deploy only"
     echo "  build-deploy <debug|release> [options]  - Build + Deploy"
+    echo "  clean [debug|release|all]               - Clean build directories"
+    echo ""
+    echo "Build Options:"
+    echo "  --clean                Force clean rebuild"
     echo ""
     echo "Deploy Options:"
     echo "  --ip <ip>              Target device IP (required)"
@@ -26,6 +30,12 @@ show_help() {
     echo "  # Build only"
     echo "  docker run ... your-image build debug"
     echo ""
+    echo "  # Clean rebuild"
+    echo "  docker run ... your-image build debug --clean"
+    echo ""
+    echo "  # Clean all build directories"
+    echo "  docker run ... your-image clean all"
+    echo ""
     echo "  # Build + Deploy + Run"
     echo "  docker run ... your-image build-deploy debug --ip 192.168.1.100 --run-args '--platform eglfs'"
     echo ""
@@ -36,9 +46,83 @@ show_help() {
     echo "  docker run ... your-image build-deploy release --ip 192.168.1.100 --user pi --password raspberry --upload-method sftp"
 }
 
+# Clean function
+do_clean() {
+    local CLEAN_TYPE="$1"
+    
+    echo "========================================="
+    echo "Cleaning build directories..."
+    echo "========================================="
+    
+    # Arrays to store directories to clean
+    declare -a dirs_to_clean
+    
+    case "$CLEAN_TYPE" in
+        "debug")
+            echo "Searching for debug build directories..."
+            while IFS= read -r -d '' dir; do
+                dirs_to_clean+=("$dir")
+            done < <(find /workspace -type d -name "*-build-*-debug" -print0 2>/dev/null)
+            ;;
+        "release")
+            echo "Searching for release build directories..."
+            while IFS= read -r -d '' dir; do
+                dirs_to_clean+=("$dir")
+            done < <(find /workspace -type d -name "*-build-*-release" -print0 2>/dev/null)
+            ;;
+        "all"|"")
+            echo "Searching for all build directories..."
+            while IFS= read -r -d '' dir; do
+                dirs_to_clean+=("$dir")
+            done < <(find /workspace -type d -name "*-build-*-debug" -o -name "*-build-*-release" -print0 2>/dev/null)
+            ;;
+        *)
+            echo "ERROR: Invalid clean type. Use 'debug', 'release', or 'all'"
+            exit 1
+            ;;
+    esac
+    
+    # Check if there are directories to clean
+    if [ ${#dirs_to_clean[@]} -eq 0 ]; then
+        echo "No build directories found to clean."
+        echo "========================================="
+        return 0
+    fi
+    
+    # Show what will be deleted
+    echo ""
+    echo "Found ${#dirs_to_clean[@]} director(y/ies) to clean:"
+    echo ""
+    for dir in "${dirs_to_clean[@]}"; do
+        # Get directory size
+        dir_size=$(du -sh "$dir" 2>/dev/null | cut -f1)
+        echo "  - $dir  [$dir_size]"
+    done
+    echo ""
+    
+    # Calculate total size
+    total_size=$(du -shc "${dirs_to_clean[@]}" 2>/dev/null | tail -1 | cut -f1)
+    echo "Total space to free: $total_size"
+    echo ""
+    
+    # Remove directories
+    echo "Removing directories..."
+    for dir in "${dirs_to_clean[@]}"; do
+        echo "  Removing: $dir"
+        rm -rf "$dir"
+    done
+    
+    echo ""
+    echo "========================================="
+    echo "Clean completed successfully"
+    echo "Removed ${#dirs_to_clean[@]} director(y/ies)"
+    echo "========================================="
+}
+
 # Build function (modified from original version)
 do_build() {
     local BUILD_TYPE="$1"
+    local FORCE_CLEAN="$2"
     
     if [ "$BUILD_TYPE" != "debug" ] && [ "$BUILD_TYPE" != "release" ]; then
         echo "ERROR: Invalid build type. Use 'debug' or 'release'"
@@ -106,6 +190,15 @@ do_build() {
     echo "Build directory: $BUILD_DIR"
     echo "Cross-compiler: ${CC:-N/A}"
     echo "========================================="
+
+    # Clean if requested
+    if [ "$FORCE_CLEAN" = "true" ]; then
+        echo "Performing clean rebuild..."
+        if [ -d "$BUILD_DIR" ]; then
+            rm -rf "$BUILD_DIR"
+            echo "Build directory cleaned: $BUILD_DIR"
+        fi
+    fi
 
     # Create build directory
     mkdir -p "$BUILD_DIR"
@@ -208,13 +301,39 @@ COMMAND="$1"
 shift
 
 case "$COMMAND" in
+    "clean")
+        CLEAN_TYPE="${1:-all}"
+        do_clean "$CLEAN_TYPE"
+        ;;
+    
     "build")
         if [ $# -lt 1 ]; then
             echo "ERROR: Specify build type (debug|release)"
             show_help
             exit 1
         fi
-        do_build "$1"
+        
+        build_type="$1"
+        shift
+        
+        force_clean="false"
+        
+        # Parse build options
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --clean)
+                    force_clean="true"
+                    shift
+                    ;;
+                *)
+                    echo "ERROR: Unknown option: $1"
+                    show_help
+                    exit 1
+                    ;;
+            esac
+        done
+        
+        do_build "$build_type" "$force_clean"
         ;;
     
     "deploy")
@@ -307,6 +426,7 @@ case "$COMMAND" in
         upload_method="rsync"
         run_args=""
         no_run="false"
+        force_clean="false"
         
         # Parse deploy options
         while [[ $# -gt 0 ]]; do
@@ -339,6 +459,10 @@ case "$COMMAND" in
                     no_run="true"
                     shift
                     ;;
+                --clean)
+                    force_clean="true"
+                    shift
+                    ;;
                 *)
                     echo "ERROR: Unknown option: $1"
                     show_help
@@ -359,7 +483,7 @@ case "$COMMAND" in
         fi
         
         # Build first
-        do_build "$build_type"
+        do_build "$build_type" "$force_clean"
         
         # Then deploy the just-built executable
         if [ -n "$BUILT_EXECUTABLE" ]; then
